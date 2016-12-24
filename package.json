@@ -22,10 +22,18 @@
     },
     "messageKeys": [
       "TEMPERATURE",
-      "CONDITIONS"
+      "CONDITIONS",
+      "WINDDIR",
+      "WIND"
     ],
     "resources": {
-      "media": []
+      "media": [
+        {
+          "type": "font",
+          "name": "FONT_SOURCE_CODE_PRO_8",
+          "file": "scpr.ttf"
+        }
+      ]
     }
   }
 }

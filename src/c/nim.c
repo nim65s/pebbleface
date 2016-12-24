@@ -3,10 +3,11 @@
 static Window *s_main_window;
 static TextLayer *s_time_layer;
 static TextLayer *s_weather_layer;
-// Store incoming information
+static GFont s_font;
 static char temperature_buffer[8];
 static char conditions_buffer[32];
 static char weather_layer_buffer[32];
+
 
 
 static void update_time() {
@@ -49,17 +50,17 @@ static void main_window_load(Window *window) {
   // Improve the layout to be more like a watchface
   text_layer_set_background_color(s_time_layer, GColorBlack);
   text_layer_set_text_color(s_time_layer, GColorCeleste);
+  text_layer_set_text_alignment(s_time_layer, GTextAlignmentCenter);
   text_layer_set_text(s_time_layer, "00:00");
   text_layer_set_font(s_time_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
-  text_layer_set_text_alignment(s_time_layer, GTextAlignmentCenter);
 
   // weather
-  s_weather_layer = text_layer_create(GRect(0, 18, bounds.size.w, 25));
+  s_weather_layer = text_layer_create(GRect(0, 21, bounds.size.w, 16));
   text_layer_set_background_color(s_weather_layer, GColorBlack);
   text_layer_set_text_color(s_weather_layer, GColorCeleste);
   text_layer_set_text_alignment(s_weather_layer, GTextAlignmentCenter);
   text_layer_set_text(s_weather_layer, "Loading...");
-  text_layer_set_font(s_weather_layer, fonts_get_system_font(FONT_KEY_ROBOTO_CONDENSED_21));
+  text_layer_set_font(s_weather_layer, s_font);
 
   // Add it as a child layer to the Window's root layer
   layer_add_child(window_layer, text_layer_get_layer(s_time_layer));
@@ -103,6 +104,7 @@ static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
 }
 
 static void init() {
+  s_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SOURCE_CODE_PRO_8));
   // Create main Window element and assign to pointer
   s_main_window = window_create();
 
