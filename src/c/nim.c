@@ -2,6 +2,7 @@
 
 static Window *s_main_window;
 static TextLayer *s_time_layer;
+static TextLayer *s_weather_layer;
 
 static void update_time() {
   // Get a tm structure
@@ -10,8 +11,7 @@ static void update_time() {
 
   // Write the current hours and minutes into a buffer
   static char s_buffer[8];
-  strftime(s_buffer, sizeof(s_buffer), clock_is_24h_style() ?
-                                          "%H:%M" : "%I:%M", tick_time);
+  strftime(s_buffer, sizeof(s_buffer), clock_is_24h_style() ? "%H:%M" : "%I:%M", tick_time);
 
   // Display this time on the TextLayer
   text_layer_set_text(s_time_layer, s_buffer);
@@ -27,18 +27,26 @@ static void main_window_load(Window *window) {
   GRect bounds = layer_get_bounds(window_layer);
 
   // Create the TextLayer with specific bounds
-  s_time_layer = text_layer_create(
-      GRect(0, PBL_IF_ROUND_ELSE(58, 52), bounds.size.w, 50));
+  s_time_layer = text_layer_create(GRect(0, 60, bounds.size.w, 48));
 
   // Improve the layout to be more like a watchface
-  text_layer_set_background_color(s_time_layer, GColorClear);
-  text_layer_set_text_color(s_time_layer, GColorBlack);
+  text_layer_set_background_color(s_time_layer, GColorBlack);
+  text_layer_set_text_color(s_time_layer, GColorCeleste);
   text_layer_set_text(s_time_layer, "00:00");
   text_layer_set_font(s_time_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
   text_layer_set_text_alignment(s_time_layer, GTextAlignmentCenter);
 
+  // weather
+  s_weather_layer = text_layer_create(GRect(0, 18, bounds.size.w, 25));
+  text_layer_set_background_color(s_weather_layer, GColorBlack);
+  text_layer_set_text_color(s_weather_layer, GColorCeleste);
+  text_layer_set_text_alignment(s_weather_layer, GTextAlignmentCenter);
+  text_layer_set_text(s_weather_layer, "Loading...");
+  text_layer_set_font(s_weather_layer, fonts_get_system_font(FONT_KEY_ROBOTO_CONDENSED_21));
+
   // Add it as a child layer to the Window's root layer
   layer_add_child(window_layer, text_layer_get_layer(s_time_layer));
+  layer_add_child(window_layer, text_layer_get_layer(s_weather_layer));
 }
 
 static void main_window_unload(Window *window) {
