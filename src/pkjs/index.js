@@ -11,7 +11,7 @@ var xhrRequest = function (url, type, callback) {
 
 function locationSuccess(pos) {
   // Construct URL
-  var url = 'http://api.openweathermap.org/data/2.5/weather?units=metric&lat=' +
+  var url = 'http://api.openweathermap.org/data/2.5/weather?units=metric&lang=fr&lat=' +
       pos.coords.latitude + '&lon=' + pos.coords.longitude + '&appid=' + myAPIKey;
 
   console.log('ur is ' + url);
@@ -27,7 +27,7 @@ function locationSuccess(pos) {
       console.log('Temperature is ' + temperature);
 
       // Conditions
-      var conditions = json.weather[0].main;
+      var conditions = json.weather[0].description;
       console.log('Conditions are ' + conditions);
 
       var dictionary = {
