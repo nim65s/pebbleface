@@ -5,6 +5,7 @@
   "keywords": ["pebble-app"],
   "private": true,
   "dependencies": {},
+  "capabilities": ["location"],
   "pebble": {
     "displayName": "nim",
     "uuid": "b7a64b1c-764e-4ba1-87fe-070fb798d512",
