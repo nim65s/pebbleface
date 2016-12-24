@@ -3,6 +3,11 @@
 static Window *s_main_window;
 static TextLayer *s_time_layer;
 static TextLayer *s_weather_layer;
+// Store incoming information
+static char temperature_buffer[8];
+static char conditions_buffer[32];
+static char weather_layer_buffer[32];
+
 
 static void update_time() {
   // Get a tm structure
@@ -19,6 +24,18 @@ static void update_time() {
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   update_time();
+}
+
+static void weather_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
+  // Begin dictionary
+  DictionaryIterator *iter;
+  app_message_outbox_begin(&iter);
+
+  // Add a key-value pair
+  dict_write_uint8(iter, 0, 0);
+
+  // Send the message
+  app_message_outbox_send();
 }
 
 static void main_window_load(Window *window) {
@@ -55,6 +72,22 @@ static void main_window_unload(Window *window) {
 }
 
 static void inbox_received_callback(DictionaryIterator *iterator, void *context) {
+  // Read tuples for data
+  Tuple *temp_tuple = dict_find(iterator, MESSAGE_KEY_TEMPERATURE);
+  Tuple *conditions_tuple = dict_find(iterator, MESSAGE_KEY_CONDITIONS);
+
+  // If all data is available, use it
+  if (temp_tuple && conditions_tuple) {
+    snprintf(temperature_buffer, sizeof(temperature_buffer), "%d",
+        (int)temp_tuple->value->int32);
+    snprintf(conditions_buffer, sizeof(conditions_buffer), "%s",
+        conditions_tuple->value->cstring);
+
+    // Assemble full string and display
+    snprintf(weather_layer_buffer, sizeof(weather_layer_buffer), "%s°C, %s",
+        temperature_buffer, conditions_buffer);
+    text_layer_set_text(s_weather_layer, weather_layer_buffer);
+  }
 }
 
 static void inbox_dropped_callback(AppMessageResult reason, void *context) {
@@ -75,9 +108,9 @@ static void init() {
 
   // Set handlers to manage the elements inside the Window
   window_set_window_handlers(s_main_window, (WindowHandlers) {
-    .load = main_window_load,
-    .unload = main_window_unload
-  });
+      .load = main_window_load,
+      .unload = main_window_unload
+      });
 
   // Show the Window on the watch, with animated=true
   window_stack_push(s_main_window, true);
@@ -87,6 +120,7 @@ static void init() {
 
   // Register with TickTimerService
   tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
+  tick_timer_service_subscribe(HOUR_UNIT, weather_tick_handler);
 
   // Register callbacks
   app_message_register_inbox_received(inbox_received_callback);

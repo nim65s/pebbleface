@@ -10,11 +10,11 @@ var xhrRequest = function (url, type, callback) {
 };
 
 function locationSuccess(pos) {
-  console.log('Position is ' + pos.coords.latitude + ', ' + pos.coords.longitude);
-
   // Construct URL
   var url = 'http://api.openweathermap.org/data/2.5/weather?lat=' +
       pos.coords.latitude + '&lon=' + pos.coords.longitude + '&appid=' + myAPIKey;
+
+  console.log('ur is ' + url);
 
   // Send request to OpenWeatherMap
   xhrRequest(url, 'GET',
@@ -29,6 +29,20 @@ function locationSuccess(pos) {
       // Conditions
       var conditions = json.weather[0].main;
       console.log('Conditions are ' + conditions);
+
+      var dictionary = {
+          'TEMPERATURE': temperature,
+          'CONDITIONS': conditions
+      };
+
+      Pebble.sendAppMessage(dictionary,
+          function(e) {
+              console.log('Weather info sent to Pebble successfully !');
+          },
+          function(e) {
+              console.log('Error sending weather info to Pebble :/');
+          }
+      );
     }
   );
 }
@@ -54,3 +68,10 @@ Pebble.addEventListener('ready',
   }
 );
 
+// Listen for when an AppMessage is received
+Pebble.addEventListener('appmessage',
+  function(e) {
+    console.log('AppMessage received!');
+    getWeather();
+  }
+);
