@@ -24,7 +24,8 @@
       "TEMPERATURE",
       "CONDITIONS",
       "WINDDIR",
-      "WIND"
+      "WIND",
+      "CALENDAR"
     ],
     "resources": {
       "media": [

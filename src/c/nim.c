@@ -1,14 +1,24 @@
 #include <pebble.h>
 
 static Window *s_main_window;
-static TextLayer *s_time_layer;
-static TextLayer *s_weather_layer;
 static GFont s_font;
+
+// Time
+static TextLayer *s_time_layer;
+
+// Weather
+static TextLayer *s_weather_layer;
 static char temperature_buffer[8];
 static char conditions_buffer[32];
 static char weather_layer_buffer[32];
+
+// Battery
 static int s_battery_level;
 static Layer *s_battery_layer;
+
+// Calendar
+static TextLayer* s_calendar_layers[6];
+static char calendar_buffer[6 * 32];
 
 
 static void battery_update_proc(Layer *layer, GContext *ctx) {
@@ -54,27 +64,36 @@ static void main_window_load(Window *window) {
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
 
-  // Create the TextLayer with specific bounds
-  s_time_layer = text_layer_create(GRect(0, 60, bounds.size.w, 48));
-
-  // Improve the layout to be more like a watchface
+  // Time
+  s_time_layer = text_layer_create(GRect(0, 20, bounds.size.w, 52));
   text_layer_set_background_color(s_time_layer, GColorBlack);
   text_layer_set_text_color(s_time_layer, GColorCeleste);
   text_layer_set_text_alignment(s_time_layer, GTextAlignmentCenter);
   text_layer_set_text(s_time_layer, "00:00");
   text_layer_set_font(s_time_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
 
-  // weather
-  s_weather_layer = text_layer_create(GRect(0, 21, bounds.size.w, 16));
+  // Weather
+  s_weather_layer = text_layer_create(GRect(0, 4, bounds.size.w, 16));
   text_layer_set_background_color(s_weather_layer, GColorBlack);
   text_layer_set_text_color(s_weather_layer, GColorWhite);
   text_layer_set_text_alignment(s_weather_layer, GTextAlignmentCenter);
-  text_layer_set_text(s_weather_layer, "Loading...");
+  text_layer_set_text(s_weather_layer, "");
   text_layer_set_font(s_weather_layer, s_font);
 
-  // battery
+  // Battery
   s_battery_layer = layer_create(GRect(0, 0, bounds.size.w, 5));
   layer_set_update_proc(s_battery_layer, battery_update_proc);
+
+  // Calendar
+  for (int i=0; i<6; i++) {
+    s_calendar_layers[i] = text_layer_create(GRect(0, 72 + 16 * i, bounds.size.w, 16));
+    text_layer_set_background_color(s_calendar_layers[i], GColorBlack);
+    text_layer_set_text_color(s_calendar_layers[i], GColorWhite);
+    text_layer_set_text_alignment(s_calendar_layers[i], GTextAlignmentLeft);
+    text_layer_set_font(s_calendar_layers[i], s_font);
+    text_layer_set_text(s_calendar_layers[i], "");
+    layer_add_child(window_layer, text_layer_get_layer(s_calendar_layers[i]));
+  }
 
   // Add it as a child layer to the Window's root layer
   layer_add_child(window_layer, text_layer_get_layer(s_time_layer));
@@ -94,18 +113,23 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
   // Read tuples for data
   Tuple *temp_tuple = dict_find(iterator, MESSAGE_KEY_TEMPERATURE);
   Tuple *conditions_tuple = dict_find(iterator, MESSAGE_KEY_CONDITIONS);
+  Tuple *calendar_tuple = dict_find(iterator, MESSAGE_KEY_CALENDAR);
+  APP_LOG(APP_LOG_LEVEL_ERROR, "Message dropped!");
 
   // If all data is available, use it
-  if (temp_tuple && conditions_tuple) {
+  if (temp_tuple && conditions_tuple && calendar_tuple) {
     snprintf(temperature_buffer, sizeof(temperature_buffer), "%d",
         (int)temp_tuple->value->int32);
     snprintf(conditions_buffer, sizeof(conditions_buffer), "%s",
         conditions_tuple->value->cstring);
+    snprintf(calendar_buffer, sizeof(calendar_buffer), "%s",
+        calendar_tuple->value->cstring);
 
     // Assemble full string and display
     snprintf(weather_layer_buffer, sizeof(weather_layer_buffer), "%s°C, %s",
         temperature_buffer, conditions_buffer);
     text_layer_set_text(s_weather_layer, weather_layer_buffer);
+    text_layer_set_text(s_calendar_layers[0], calendar_buffer);
   }
 }
 
