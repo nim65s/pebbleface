@@ -1,34 +1,22 @@
-var myAPIKey = 'f22e41a3d6bc8bb2b821d3b304952f13';
-
 var xhrRequest = function (url, type, callback) {
   var xhr = new XMLHttpRequest();
-  xhr.onload = function () {
-    callback(this.responseText);
-  };
+  xhr.onload = function () { callback(this.responseText); };
   xhr.open(type, url);
   xhr.send();
 };
 
 function locationSuccess(pos) {
   // Construct URL
-  var url = 'http://api.openweathermap.org/data/2.5/weather?units=metric&lang=fr&lat=' +
-      pos.coords.latitude + '&lon=' + pos.coords.longitude + '&appid=' + myAPIKey;
-
-  console.log('ur is ' + url);
+  var url = 'http://api.openweathermap.org/data/2.5/weather?units=metric&lang=fr&lat=' + pos.coords.latitude
+        + '&lon=' + pos.coords.longitude + '&appid=f22e41a3d6bc8bb2b821d3b304952f13';
 
   // Send request to OpenWeatherMap
   xhrRequest(url, 'GET',
     function(responseText) {
-      // responseText contains a JSON object with weather info
       var json = JSON.parse(responseText);
 
-      // Temperature in Kelvin requires adjustment
       var temperature = json.main.temp;
-      console.log('Temperature is ' + temperature);
-
-      // Conditions
       var conditions = json.weather[0].description;
-      console.log('Conditions are ' + conditions);
 
       // Vent https://fr.wikipedia.org/wiki/%C3%89chelle_de_Beaufort
       var windspeed = Math.round(Math.cbrt(Math.pow(json.wind.speed * 3.6, 2) / 9));
@@ -60,21 +48,12 @@ function locationSuccess(pos) {
           'WIND': windspeed
       };
 
-      Pebble.sendAppMessage(dictionary,
-          function(e) {
-              console.log('Weather info sent to Pebble successfully !');
-          },
-          function(e) {
-              console.log('Error sending weather info to Pebble :/');
-          }
-      );
+      Pebble.sendAppMessage(dictionary);
     }
   );
 }
 
-function locationError(err) {
-  console.log('Error requesting location!');
-}
+function locationError(err) { console.log('Error requesting location!'); }
 
 function getWeather() {
   navigator.geolocation.getCurrentPosition(
@@ -84,19 +63,5 @@ function getWeather() {
   );
 }
 
-// Listen for when the watchface is opened
-Pebble.addEventListener('ready',
-  function(e) {
-    console.log('PebbleKit JS ready!');
-    // Get the initial weather
-    getWeather();
-  }
-);
-
-// Listen for when an AppMessage is received
-Pebble.addEventListener('appmessage',
-  function(e) {
-    console.log('AppMessage received!');
-    getWeather();
-  }
-);
+Pebble.addEventListener('ready', function(e) { getWeather(); });
+Pebble.addEventListener('appmessage', function(e) { getWeather(); });

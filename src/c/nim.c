@@ -7,8 +7,18 @@ static GFont s_font;
 static char temperature_buffer[8];
 static char conditions_buffer[32];
 static char weather_layer_buffer[32];
+static int s_battery_level;
+static Layer *s_battery_layer;
 
 
+static void battery_update_proc(Layer *layer, GContext *ctx) {
+  GRect bounds = layer_get_bounds(layer);
+  int width = (s_battery_level * bounds.size.w) / 100;
+  graphics_context_set_fill_color(ctx, GColorBlack);
+  graphics_fill_rect(ctx, bounds, 0, GCornerNone);
+  graphics_context_set_fill_color(ctx, GColorCeleste);
+  graphics_fill_rect(ctx, GRect(0, 0, width, bounds.size.h), 0, GCornerNone);
+}
 
 static void update_time() {
   // Get a tm structure
@@ -62,9 +72,17 @@ static void main_window_load(Window *window) {
   text_layer_set_text(s_weather_layer, "Loading...");
   text_layer_set_font(s_weather_layer, s_font);
 
+  // battery
+  s_battery_layer = layer_create(GRect(0, 0, bounds.size.w, 5));
+  layer_set_update_proc(s_battery_layer, battery_update_proc);
+
   // Add it as a child layer to the Window's root layer
   layer_add_child(window_layer, text_layer_get_layer(s_time_layer));
   layer_add_child(window_layer, text_layer_get_layer(s_weather_layer));
+  layer_add_child(window_layer, s_battery_layer);
+
+  // update meter
+  layer_mark_dirty(s_battery_layer);
 }
 
 static void main_window_unload(Window *window) {
@@ -91,16 +109,20 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
   }
 }
 
-static void inbox_dropped_callback(AppMessageResult reason, void *context) {
-  APP_LOG(APP_LOG_LEVEL_ERROR, "Message dropped!");
-}
+/*static void inbox_dropped_callback(AppMessageResult reason, void *context) {*/
+  /*APP_LOG(APP_LOG_LEVEL_ERROR, "Message dropped!");*/
+/*}*/
 
-static void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reason, void *context) {
-  APP_LOG(APP_LOG_LEVEL_ERROR, "Outbox send failed!");
-}
+/*static void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reason, void *context) {*/
+  /*APP_LOG(APP_LOG_LEVEL_ERROR, "Outbox send failed!");*/
+/*}*/
 
-static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
-  APP_LOG(APP_LOG_LEVEL_INFO, "Outbox send success!");
+/*static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {*/
+  /*APP_LOG(APP_LOG_LEVEL_INFO, "Outbox send success!");*/
+/*}*/
+
+static void battery_callback(BatteryChargeState state) {
+  s_battery_level = state.charge_percent;
 }
 
 static void init() {
@@ -126,9 +148,11 @@ static void init() {
 
   // Register callbacks
   app_message_register_inbox_received(inbox_received_callback);
-  app_message_register_inbox_dropped(inbox_dropped_callback);
-  app_message_register_outbox_failed(outbox_failed_callback);
-  app_message_register_outbox_sent(outbox_sent_callback);
+  /*app_message_register_inbox_dropped(inbox_dropped_callback);*/
+  /*app_message_register_outbox_failed(outbox_failed_callback);*/
+  /*app_message_register_outbox_sent(outbox_sent_callback);*/
+  battery_state_service_subscribe(battery_callback);
+  battery_callback(battery_state_service_peek());
 
   // Open AppMessage
   const int inbox_size = 128;
@@ -137,7 +161,7 @@ static void init() {
 }
 
 static void deinit() {
-  // Destroy Window
+  layer_destroy(s_battery_layer);
   window_destroy(s_main_window);
 }
 
