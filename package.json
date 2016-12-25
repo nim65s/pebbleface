@@ -12,20 +12,13 @@
     "sdkVersion": "3",
     "enableMultiJS": true,
     "targetPlatforms": [
-      "aplite",
-      "basalt",
-      "chalk",
-      "diorite"
+      "basalt"
     ],
     "watchapp": {
       "watchface": true
     },
     "messageKeys": [
-      "TEMPERATURE",
-      "CONDITIONS",
-      "WINDDIR",
-      "WIND",
-      "CALENDAR"
+      "C"
     ],
     "resources": {
       "media": [

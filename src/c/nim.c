@@ -8,17 +8,60 @@ static TextLayer *s_time_layer;
 
 // Weather
 static TextLayer *s_weather_layer;
-static char temperature_buffer[8];
-static char conditions_buffer[32];
-static char weather_layer_buffer[32];
+static char weather_buffer[32];
 
 // Battery
 static int s_battery_level;
 static Layer *s_battery_layer;
 
 // Calendar
-static TextLayer* s_calendar_layers[6];
-static char calendar_buffer[6 * 32];
+static TextLayer* s_calendar_layers[7];
+static char calendar_buffer[7 * 32];
+static char *token;
+
+
+char * strtok(s, delim)
+  register char *s;
+  register const char *delim;
+{
+  register char *spanp;
+  register int c, sc;
+  char *tok;
+  static char *last;
+
+
+  if (s == NULL && (s = last) == NULL) return (NULL);
+
+cont:
+  c = *s++;
+  for (spanp = (char *)delim; (sc = *spanp++) != 0;) {
+    if (c == sc) goto cont;
+  }
+
+  if (c == 0) {    /* no non-delimiter characters */
+    last = NULL;
+    return (NULL);
+  }
+  tok = s - 1;
+
+  /*
+   * Scan token (scan for delimiters: s += strcspn(s, delim), sort of).
+   * Note that delim must have one NUL; we stop if we see that, too.
+   */
+  for (;;) {
+    c = *s++;
+    spanp = (char *)delim;
+    do {
+      if ((sc = *spanp++) == c) {
+        if (c == 0) s = NULL;
+        else s[-1] = 0;
+        last = s;
+        return (tok);
+      }
+    } while (sc != 0);
+  }
+  /* NOTREACHED */
+}
 
 
 static void battery_update_proc(Layer *layer, GContext *ctx) {
@@ -37,17 +80,13 @@ static void update_time() {
 
   // Write the current hours and minutes into a buffer
   static char s_buffer[8];
-  strftime(s_buffer, sizeof(s_buffer), clock_is_24h_style() ? "%H:%M" : "%I:%M", tick_time);
+  strftime(s_buffer, sizeof(s_buffer), "%H:%M", tick_time);
 
   // Display this time on the TextLayer
   text_layer_set_text(s_time_layer, s_buffer);
 }
 
-static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
-  update_time();
-}
-
-static void weather_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
+static void weather_tick_handler() {
   // Begin dictionary
   DictionaryIterator *iter;
   app_message_outbox_begin(&iter);
@@ -57,6 +96,12 @@ static void weather_tick_handler(struct tm *tick_time, TimeUnits units_changed) 
 
   // Send the message
   app_message_outbox_send();
+}
+
+static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
+  update_time();
+  weather_tick_handler();
+  /*if (tick_time->tm_min == 0) weather_tick_handler();*/
 }
 
 static void main_window_load(Window *window) {
@@ -111,39 +156,38 @@ static void main_window_unload(Window *window) {
 
 static void inbox_received_callback(DictionaryIterator *iterator, void *context) {
   // Read tuples for data
-  Tuple *temp_tuple = dict_find(iterator, MESSAGE_KEY_TEMPERATURE);
-  Tuple *conditions_tuple = dict_find(iterator, MESSAGE_KEY_CONDITIONS);
-  Tuple *calendar_tuple = dict_find(iterator, MESSAGE_KEY_CALENDAR);
-  APP_LOG(APP_LOG_LEVEL_ERROR, "Message dropped!");
+  /*Tuple *weather_tuple = dict_find(iterator, MESSAGE_KEY_W);*/
+  Tuple *calendar_tuple = dict_find(iterator, MESSAGE_KEY_C);
 
   // If all data is available, use it
-  if (temp_tuple && conditions_tuple && calendar_tuple) {
-    snprintf(temperature_buffer, sizeof(temperature_buffer), "%d",
-        (int)temp_tuple->value->int32);
-    snprintf(conditions_buffer, sizeof(conditions_buffer), "%s",
-        conditions_tuple->value->cstring);
+  if (calendar_tuple) {
     snprintf(calendar_buffer, sizeof(calendar_buffer), "%s",
         calendar_tuple->value->cstring);
-
-    // Assemble full string and display
-    snprintf(weather_layer_buffer, sizeof(weather_layer_buffer), "%s°C, %s",
-        temperature_buffer, conditions_buffer);
-    text_layer_set_text(s_weather_layer, weather_layer_buffer);
-    text_layer_set_text(s_calendar_layers[0], calendar_buffer);
+    APP_LOG(APP_LOG_LEVEL_ERROR, calendar_buffer);
+    token = strtok(calendar_buffer, "^");
+    text_layer_set_text(s_weather_layer, token);
+    token = strtok(NULL, "^");
+    int i = 0;
+    while(token != NULL && i < 6) {
+      text_layer_set_text(s_calendar_layers[i++], token);
+      token = strtok(NULL, "^");
+    }
   }
 }
 
-/*static void inbox_dropped_callback(AppMessageResult reason, void *context) {*/
-  /*APP_LOG(APP_LOG_LEVEL_ERROR, "Message dropped!");*/
-/*}*/
+static void inbox_dropped_callback(AppMessageResult reason, void *context) {
+  APP_LOG(APP_LOG_LEVEL_ERROR, "Message dropped!");
+  APP_LOG(APP_LOG_LEVEL_ERROR, "Error preparing the outbox: %d", (int)reason);
+  text_layer_set_text(s_weather_layer, "raté");
+}
 
-/*static void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reason, void *context) {*/
-  /*APP_LOG(APP_LOG_LEVEL_ERROR, "Outbox send failed!");*/
-/*}*/
+static void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reason, void *context) {
+  APP_LOG(APP_LOG_LEVEL_ERROR, "Outbox send failed!");
+}
 
-/*static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {*/
-  /*APP_LOG(APP_LOG_LEVEL_INFO, "Outbox send success!");*/
-/*}*/
+static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
+  APP_LOG(APP_LOG_LEVEL_INFO, "Outbox send success!");
+}
 
 static void battery_callback(BatteryChargeState state) {
   s_battery_level = state.charge_percent;
@@ -168,13 +212,12 @@ static void init() {
 
   // Register with TickTimerService
   tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
-  tick_timer_service_subscribe(HOUR_UNIT, weather_tick_handler);
 
   // Register callbacks
   app_message_register_inbox_received(inbox_received_callback);
-  /*app_message_register_inbox_dropped(inbox_dropped_callback);*/
-  /*app_message_register_outbox_failed(outbox_failed_callback);*/
-  /*app_message_register_outbox_sent(outbox_sent_callback);*/
+  app_message_register_inbox_dropped(inbox_dropped_callback);
+  app_message_register_outbox_failed(outbox_failed_callback);
+  app_message_register_outbox_sent(outbox_sent_callback);
   battery_state_service_subscribe(battery_callback);
   battery_callback(battery_state_service_peek());
 
