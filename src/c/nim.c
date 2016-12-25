@@ -67,7 +67,7 @@ static void main_window_load(Window *window) {
   // weather
   s_weather_layer = text_layer_create(GRect(0, 21, bounds.size.w, 16));
   text_layer_set_background_color(s_weather_layer, GColorBlack);
-  text_layer_set_text_color(s_weather_layer, GColorCeleste);
+  text_layer_set_text_color(s_weather_layer, GColorWhite);
   text_layer_set_text_alignment(s_weather_layer, GTextAlignmentCenter);
   text_layer_set_text(s_weather_layer, "Loading...");
   text_layer_set_font(s_weather_layer, s_font);
