@@ -2,6 +2,7 @@
 
 static Window *s_main_window;
 static GFont s_font;
+static bool fail = false;
 
 // Time
 static TextLayer *s_time_layer;
@@ -18,7 +19,6 @@ static Layer *s_battery_layer;
 static TextLayer* s_calendar_layers[7];
 static char calendar_buffer[7 * 32];
 static char *token;
-
 
 char * strtok(s, delim)
   register char *s;
@@ -63,49 +63,36 @@ cont:
   /* NOTREACHED */
 }
 
-
 static void battery_update_proc(Layer *layer, GContext *ctx) {
   GRect bounds = layer_get_bounds(layer);
   int width = (s_battery_level * bounds.size.w) / 100;
   graphics_context_set_fill_color(ctx, GColorBlack);
   graphics_fill_rect(ctx, bounds, 0, GCornerNone);
-  graphics_context_set_fill_color(ctx, s_battery_level > 30 ? GColorGreen : GColorRed);
+  graphics_context_set_fill_color(ctx, s_battery_level > 20 ? GColorGreen : GColorRed);
   graphics_fill_rect(ctx, GRect(0, 0, width, bounds.size.h), 0, GCornerNone);
 }
 
 static void update_time() {
-  // Get a tm structure
   time_t temp = time(NULL);
   struct tm *tick_time = localtime(&temp);
-
-  // Write the current hours and minutes into a buffer
   static char s_buffer[8];
   strftime(s_buffer, sizeof(s_buffer), "%H:%M", tick_time);
-
-  // Display this time on the TextLayer
   text_layer_set_text(s_time_layer, s_buffer);
 }
 
 static void weather_tick_handler() {
-  // Begin dictionary
   DictionaryIterator *iter;
   app_message_outbox_begin(&iter);
-
-  // Add a key-value pair
   dict_write_uint8(iter, 0, 0);
-
-  // Send the message
   app_message_outbox_send();
 }
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   update_time();
-  weather_tick_handler();
-  /*if (tick_time->tm_min == 0) weather_tick_handler();*/
+  if (fail || tick_time->tm_min == 0) weather_tick_handler();
 }
 
 static void main_window_load(Window *window) {
-  // Get information about the Window
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
 
@@ -150,39 +137,44 @@ static void main_window_load(Window *window) {
 }
 
 static void main_window_unload(Window *window) {
-  // Destroy TextLayer
   text_layer_destroy(s_time_layer);
+  text_layer_destroy(s_weather_layer);
+  for (int i=0; i<6; i++) text_layer_destroy(s_calendar_layers[i]);
 }
 
 static void inbox_received_callback(DictionaryIterator *iterator, void *context) {
   // Read tuples for data
-  /*Tuple *weather_tuple = dict_find(iterator, MESSAGE_KEY_W);*/
   Tuple *calendar_tuple = dict_find(iterator, MESSAGE_KEY_C);
 
   // If all data is available, use it
   if (calendar_tuple) {
     snprintf(calendar_buffer, sizeof(calendar_buffer), "%s",
         calendar_tuple->value->cstring);
-    APP_LOG(APP_LOG_LEVEL_ERROR, calendar_buffer);
     token = strtok(calendar_buffer, "^");
     text_layer_set_text(s_weather_layer, token);
     token = strtok(NULL, "^");
-    int i = 0;
-    while(token != NULL && i < 6) {
-      text_layer_set_text(s_calendar_layers[i++], token);
-      token = strtok(NULL, "^");
+    for (int i=0; i<6; i++) {
+      if (token != NULL) {
+        text_layer_set_text(s_calendar_layers[i], token);
+        token = strtok(NULL, "^");
+      } else {
+        text_layer_set_text(s_calendar_layers[i], "");
+      }
     }
+    fail = false;
   }
 }
 
 static void inbox_dropped_callback(AppMessageResult reason, void *context) {
-  APP_LOG(APP_LOG_LEVEL_ERROR, "Message dropped!");
-  APP_LOG(APP_LOG_LEVEL_ERROR, "Error preparing the outbox: %d", (int)reason);
-  text_layer_set_text(s_weather_layer, "raté");
+  snprintf(weather_buffer, sizeof(weather_buffer), "dropped %d", reason);
+  text_layer_set_text(s_weather_layer, weather_buffer);
+  fail = true;
 }
 
 static void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reason, void *context) {
-  APP_LOG(APP_LOG_LEVEL_ERROR, "Outbox send failed!");
+  snprintf(weather_buffer, sizeof(weather_buffer), "failed %d", reason);
+  text_layer_set_text(s_weather_layer, weather_buffer);
+  fail = true;
 }
 
 static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
