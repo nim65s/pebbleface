@@ -1,84 +1,19 @@
-#include <pebble.h>
+#include "utils.h"
 
 static Window *s_main_window;
 static GFont s_font;
-static bool fail = false;
-
-// Time
-static TextLayer *s_time_layer;
-
-// Weather
-static TextLayer *s_weather_layer;
-static char weather_buffer[32];
-
-// Battery
-static int s_battery_level;
-static Layer *s_battery_layer;
-
-// Calendar
-static TextLayer* s_calendar_layers[7];
-static char calendar_buffer[7 * 32];
+static bool update = true;
 static char *token;
 
-char * strtok(s, delim)
-  register char *s;
-  register const char *delim;
-{
-  register char *spanp;
-  register int c, sc;
-  char *tok;
-  static char *last;
+// Layers
+static TextLayer *s_time_layer;
+static TextLayer *s_weather_layer;
+static Layer *s_battery_layer;
+static TextLayer* s_calendar_layers[7];
 
-
-  if (s == NULL && (s = last) == NULL) return (NULL);
-
-cont:
-  c = *s++;
-  for (spanp = (char *)delim; (sc = *spanp++) != 0;) {
-    if (c == sc) goto cont;
-  }
-
-  if (c == 0) {    /* no non-delimiter characters */
-    last = NULL;
-    return (NULL);
-  }
-  tok = s - 1;
-
-  /*
-   * Scan token (scan for delimiters: s += strcspn(s, delim), sort of).
-   * Note that delim must have one NUL; we stop if we see that, too.
-   */
-  for (;;) {
-    c = *s++;
-    spanp = (char *)delim;
-    do {
-      if ((sc = *spanp++) == c) {
-        if (c == 0) s = NULL;
-        else s[-1] = 0;
-        last = s;
-        return (tok);
-      }
-    } while (sc != 0);
-  }
-  /* NOTREACHED */
-}
-
-static void battery_update_proc(Layer *layer, GContext *ctx) {
-  GRect bounds = layer_get_bounds(layer);
-  int width = (s_battery_level * bounds.size.w) / 100;
-  graphics_context_set_fill_color(ctx, GColorBlack);
-  graphics_fill_rect(ctx, bounds, 0, GCornerNone);
-  graphics_context_set_fill_color(ctx, s_battery_level > 20 ? GColorGreen : GColorRed);
-  graphics_fill_rect(ctx, GRect(0, 0, width, bounds.size.h), 0, GCornerNone);
-}
-
-static void update_time() {
-  time_t temp = time(NULL);
-  struct tm *tick_time = localtime(&temp);
-  static char s_buffer[8];
-  strftime(s_buffer, sizeof(s_buffer), "%H:%M", tick_time);
-  text_layer_set_text(s_time_layer, s_buffer);
-}
+// Buffers
+static char weather_buffer[32];
+static char calendar_buffer[7 * 32];
 
 static void weather_tick_handler() {
   DictionaryIterator *iter;
@@ -88,8 +23,8 @@ static void weather_tick_handler() {
 }
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
-  update_time();
-  if (fail || tick_time->tm_min == 0) weather_tick_handler();
+  update_time(s_time_layer);
+  if (update || tick_time->tm_min == 0) weather_tick_handler();
 }
 
 static void main_window_load(Window *window) {
@@ -161,28 +96,24 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
         text_layer_set_text(s_calendar_layers[i], "");
       }
     }
-    fail = false;
+    update = false;
   }
 }
 
 static void inbox_dropped_callback(AppMessageResult reason, void *context) {
   snprintf(weather_buffer, sizeof(weather_buffer), "dropped %d", reason);
   text_layer_set_text(s_weather_layer, weather_buffer);
-  fail = true;
+  update = true;
 }
 
 static void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reason, void *context) {
   snprintf(weather_buffer, sizeof(weather_buffer), "failed %d", reason);
   text_layer_set_text(s_weather_layer, weather_buffer);
-  fail = true;
+  update = true;
 }
 
 static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
   APP_LOG(APP_LOG_LEVEL_INFO, "Outbox send success!");
-}
-
-static void battery_callback(BatteryChargeState state) {
-  s_battery_level = state.charge_percent;
 }
 
 static void init() {
@@ -200,7 +131,7 @@ static void init() {
   window_stack_push(s_main_window, true);
 
   // Make sure the time is displayed from the start
-  update_time();
+  update_time(s_time_layer);
 
   // Register with TickTimerService
   tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
@@ -214,8 +145,8 @@ static void init() {
   battery_callback(battery_state_service_peek());
 
   // Open AppMessage
-  const int inbox_size = 128;
-  const int outbox_size = 128;
+  const int inbox_size = 256;
+  const int outbox_size = 8;
   app_message_open(inbox_size, outbox_size);
 }
 
