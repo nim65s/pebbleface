@@ -11,16 +11,15 @@
 static Window *main_window;
 static GFont source_code_pro;
 static bool update = true;
-static char *token;
 
 // Layers
-static TextLayer *time_layer, *weather_layer, *temp_layer, *rain_layer,
-                 *wind_speed_layer, *wind_dir_layer;
+static TextLayer *desc_layer, *temp_layer, *rain_layer, *wind_layer,
+                 *time_layer;
 static TextLayer *calendar_layers[CAL_LINES];
 static Layer *battery_layer;
 
 // Buffers
-static char weather_buffer[32], calendar_buffer[CAL_LINES * 32];
+static char desc_b[32], temp_b[8], rain_b[8], wind_b[8], cal_b[CAL_LINES][32];
 
 static void weather_tick_handler() {
   DictionaryIterator *iter;
@@ -39,7 +38,7 @@ static void main_window_load(Window *window) {
   GRect bounds = layer_get_bounds(window_layer);
 
   // Time
-  time_layer = text_layer_create(GRect(0, 10, bounds.size.w, 48));
+  time_layer = text_layer_create(GRect(0, 10, bounds.size.w, 50));
   text_layer_set_background_color(time_layer, GColorBlack);
   text_layer_set_text_color(time_layer, GColorCeleste);
   text_layer_set_text_alignment(time_layer, GTextAlignmentCenter);
@@ -51,7 +50,7 @@ static void main_window_load(Window *window) {
   text_layer_set_background_color(temp_layer, GColorBlack);
   text_layer_set_text_color(temp_layer, GColorGreen);
   text_layer_set_text_alignment(temp_layer, GTextAlignmentLeft);
-  text_layer_set_text(temp_layer, "28");
+  text_layer_set_text(temp_layer, "");
   text_layer_set_font(temp_layer, source_code_pro);
 
   // Rain
@@ -59,32 +58,24 @@ static void main_window_load(Window *window) {
   text_layer_set_background_color(rain_layer, GColorBlack);
   text_layer_set_text_color(rain_layer, GColorGreen);
   text_layer_set_text_alignment(rain_layer, GTextAlignmentLeft);
-  text_layer_set_text(rain_layer, "0");
+  text_layer_set_text(rain_layer, "");
   text_layer_set_font(rain_layer, source_code_pro);
 
-  // Wind Speed
-  wind_speed_layer = text_layer_create(GRect(0, BOX_BOT, BOX_W, BOX_H));
-  text_layer_set_background_color(wind_speed_layer, GColorBlack);
-  text_layer_set_text_color(wind_speed_layer, GColorGreen);
-  text_layer_set_text_alignment(wind_speed_layer, GTextAlignmentRight);
-  text_layer_set_text(wind_speed_layer, "10");
-  text_layer_set_font(wind_speed_layer, source_code_pro);
+  // Wind
+  wind_layer = text_layer_create(GRect(0, BOX_BOT, BOX_W, BOX_H));
+  text_layer_set_background_color(wind_layer, GColorBlack);
+  text_layer_set_text_color(wind_layer, GColorGreen);
+  text_layer_set_text_alignment(wind_layer, GTextAlignmentRight);
+  text_layer_set_text(wind_layer, "");
+  text_layer_set_font(wind_layer, source_code_pro);
 
-  // Wind Dir
-  wind_dir_layer = text_layer_create(GRect(BOX_R, BOX_TOP, BOX_W, BOX_H));
-  text_layer_set_background_color(wind_dir_layer, GColorBlack);
-  text_layer_set_text_color(wind_dir_layer, GColorGreen);
-  text_layer_set_text_alignment(wind_dir_layer, GTextAlignmentRight);
-  text_layer_set_text(wind_dir_layer, "8");
-  text_layer_set_font(wind_dir_layer, source_code_pro);
-
-  // Weather
-  weather_layer = text_layer_create(GRect(0, 4, bounds.size.w, 16));
-  text_layer_set_background_color(weather_layer, GColorBlack);
-  text_layer_set_text_color(weather_layer, GColorWhite);
-  text_layer_set_text_alignment(weather_layer, GTextAlignmentCenter);
-  text_layer_set_text(weather_layer, "123456789012345678901234");
-  text_layer_set_font(weather_layer, source_code_pro);
+  // Description
+  desc_layer = text_layer_create(GRect(0, 4, bounds.size.w, 16));
+  text_layer_set_background_color(desc_layer, GColorBlack);
+  text_layer_set_text_color(desc_layer, GColorWhite);
+  text_layer_set_text_alignment(desc_layer, GTextAlignmentCenter);
+  text_layer_set_text(desc_layer, "");
+  text_layer_set_font(desc_layer, source_code_pro);
 
   // Battery
   battery_layer = layer_create(GRect(0, 0, bounds.size.w, 5));
@@ -92,12 +83,12 @@ static void main_window_load(Window *window) {
 
   // Calendar
   for (int i=0; i<CAL_LINES; i++) {
-    calendar_layers[i] = text_layer_create(GRect(0, 58 + BOX_H * i, bounds.size.w, BOX_H));
+    calendar_layers[i] = text_layer_create(GRect(0, 60 + BOX_H * i, bounds.size.w, BOX_H));
     text_layer_set_background_color(calendar_layers[i], GColorBlack);
     text_layer_set_text_color(calendar_layers[i], GColorWhite);
     text_layer_set_text_alignment(calendar_layers[i], GTextAlignmentLeft);
     text_layer_set_font(calendar_layers[i], source_code_pro);
-    text_layer_set_text(calendar_layers[i], "abcdefghijklmnopqrstuvwxyz");
+    text_layer_set_text(calendar_layers[i], "");
     layer_add_child(window_layer, text_layer_get_layer(calendar_layers[i]));
   }
 
@@ -105,9 +96,8 @@ static void main_window_load(Window *window) {
   layer_add_child(window_layer, text_layer_get_layer(time_layer));
   layer_add_child(window_layer, text_layer_get_layer(temp_layer));
   layer_add_child(window_layer, text_layer_get_layer(rain_layer));
-  layer_add_child(window_layer, text_layer_get_layer(wind_speed_layer));
-  layer_add_child(window_layer, text_layer_get_layer(wind_dir_layer));
-  layer_add_child(window_layer, text_layer_get_layer(weather_layer));
+  layer_add_child(window_layer, text_layer_get_layer(wind_layer));
+  layer_add_child(window_layer, text_layer_get_layer(desc_layer));
   layer_add_child(window_layer, battery_layer);
 
   // update meter
@@ -118,44 +108,48 @@ static void main_window_unload(Window *window) {
   text_layer_destroy(time_layer);
   text_layer_destroy(temp_layer);
   text_layer_destroy(rain_layer);
-  text_layer_destroy(wind_speed_layer);
-  text_layer_destroy(wind_dir_layer);
-  text_layer_destroy(weather_layer);
+  text_layer_destroy(wind_layer);
+  text_layer_destroy(desc_layer);
   for (int i=0; i<CAL_LINES; i++) text_layer_destroy(calendar_layers[i]);
 }
 
 static void inbox_received_callback(DictionaryIterator *iterator, void *context) {
   // Read tuples for data
-  Tuple *calendar_tuple = dict_find(iterator, MESSAGE_KEY_C);
+  Tuple *temp_t = dict_find(iterator, MESSAGE_KEY_T);
+  Tuple *wind_t = dict_find(iterator, MESSAGE_KEY_W);
+  Tuple *rain_t = dict_find(iterator, MESSAGE_KEY_R);
+  Tuple *desc_t = dict_find(iterator, MESSAGE_KEY_D);
 
-  // If all data is available, use it
-  if (calendar_tuple) {
-    snprintf(calendar_buffer, sizeof(calendar_buffer), "%s",
-        calendar_tuple->value->cstring);
-    token = strtok(calendar_buffer, "^");
-    text_layer_set_text(weather_layer, token);
-    token = strtok(NULL, "^");
-    for (int i=0; i<CAL_LINES; i++) {
-      if (token != NULL) {
-        text_layer_set_text(calendar_layers[i], token);
-        token = strtok(NULL, "^");
-      } else {
-        text_layer_set_text(calendar_layers[i], "");
-      }
+  snprintf(temp_b, sizeof(temp_b), "%d", (int)temp_t->value->int32);
+  text_layer_set_text(temp_layer, temp_b);
+  snprintf(wind_b, sizeof(wind_b), "%s", wind_t->value->cstring);
+  text_layer_set_text(wind_layer, wind_b);
+  snprintf(rain_b, sizeof(rain_b), "%d", (int)rain_t->value->int32);
+  text_layer_set_text(rain_layer, rain_b);
+  snprintf(desc_b, sizeof(desc_b), "%s", desc_t->value->cstring);
+  text_layer_set_text(desc_layer, desc_b);
+
+  for (int i=0; i<CAL_LINES; i++) {
+    Tuple *cal_t = dict_find(iterator, 10000 + i);
+    if (cal_t) {
+      snprintf(cal_b[i], sizeof(cal_b[i]), "%s", cal_t->value->cstring);
+      text_layer_set_text(calendar_layers[i], cal_b[i]);
+    } else {
+      text_layer_set_text(calendar_layers[i], "");
     }
-    update = false;
   }
+  update = false;
 }
 
 static void inbox_dropped_callback(AppMessageResult reason, void *context) {
-  snprintf(weather_buffer, sizeof(weather_buffer), "dropped %d", reason);
-  text_layer_set_text(weather_layer, weather_buffer);
+  snprintf(desc_b, sizeof(desc_b), "dropped %d", reason);
+  text_layer_set_text(desc_layer, desc_b);
   update = true;
 }
 
 static void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reason, void *context) {
-  snprintf(weather_buffer, sizeof(weather_buffer), "failed %d", reason);
-  text_layer_set_text(weather_layer, weather_buffer);
+  snprintf(desc_b, sizeof(desc_b), "failed %d", reason);
+  text_layer_set_text(desc_layer, desc_b);
   update = true;
 }
 
@@ -192,7 +186,7 @@ static void init() {
   battery_callback(battery_state_service_peek());
 
   // Open AppMessage
-  const int inbox_size = 256;
+  const int inbox_size = 384;
   const int outbox_size = 8;
   app_message_open(inbox_size, outbox_size);
 }
