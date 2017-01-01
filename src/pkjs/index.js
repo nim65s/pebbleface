@@ -10,7 +10,10 @@ function locationSuccess(pos) {
   xhrRequest(url, 'GET', function(responseText) { console.log('send'); Pebble.sendAppMessage(JSON.parse(responseText)); });
 }
 
-function locationError(err) { console.log('Error requesting location!'); }
+function locationError(err) {
+  var url = 'https://saurel.me/pebble/';
+  xhrRequest(url, 'GET', function(responseText) { console.log('send'); Pebble.sendAppMessage(JSON.parse(responseText)); });
+}
 
 function getWeather() {
   navigator.geolocation.getCurrentPosition( locationSuccess, locationError, {timeout: 15000, maximumAge: 60000});
