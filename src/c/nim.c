@@ -14,12 +14,13 @@ static bool update = true;
 
 // Layers
 static TextLayer *desc_layer, *temp_layer, *rain_layer, *wind_layer,
-                 *time_layer;
+                 *date_layer, *sunh_layer, *sunm_layer, *time_layer;
 static TextLayer *calendar_layers[CAL_LINES];
 static Layer *battery_layer;
 
 // Buffers
-static char desc_b[32], temp_b[8], rain_b[8], wind_b[8], cal_b[CAL_LINES][32];
+static char desc_b[32], temp_b[8], rain_b[8], wind_b[8], date_b[8], sunm_b[8],
+            sunh_b[8], cal_b[CAL_LINES][32];
 
 static void weather_tick_handler() {
   DictionaryIterator *iter;
@@ -28,9 +29,16 @@ static void weather_tick_handler() {
   app_message_outbox_send();
 }
 
+
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   update_time(time_layer);
-  if (update || tick_time->tm_min == 0) weather_tick_handler();
+  if (update || tick_time->tm_min == 0) {
+    weather_tick_handler();
+    if (update || tick_time->tm_hour == 0) {
+      snprintf(date_b, sizeof(date_b), "%d", tick_time->tm_day);
+      text_layer_set_text(date_layer, date_b);
+    }
+  }
 }
 
 static void main_window_load(Window *window) {
@@ -69,6 +77,30 @@ static void main_window_load(Window *window) {
   text_layer_set_text(wind_layer, "");
   text_layer_set_font(wind_layer, source_code_pro);
 
+  // Date
+  date_layer = text_layer_create(GRect(BOX_R, BOX_TOP, BOX_W, BOX_H));
+  text_layer_set_background_color(date_layer, GColorBlack);
+  text_layer_set_text_color(date_layer, GColorGreen);
+  text_layer_set_text_alignment(date_layer, GTextAlignmentLeft);
+  text_layer_set_text(date_layer, "");
+  text_layer_set_font(date_layer, source_code_pro);
+
+  // Sun Hour
+  sunh_layer = text_layer_create(GRect(BOX_R, BOX_MID, BOX_W, BOX_H));
+  text_layer_set_background_color(sunh_layer, GColorBlack);
+  text_layer_set_text_color(sunh_layer, GColorGreen);
+  text_layer_set_text_alignment(sunh_layer, GTextAlignmentLeft);
+  text_layer_set_text(sunh_layer, "");
+  text_layer_set_font(sunh_layer, source_code_pro);
+
+  // Sun Min
+  sunm_layer = text_layer_create(GRect(BOX_R, BOX_BOT, BOX_W, BOX_H));
+  text_layer_set_background_color(sunm_layer, GColorBlack);
+  text_layer_set_text_color(sunm_layer, GColorGreen);
+  text_layer_set_text_alignment(sunm_layer, GTextAlignmentRight);
+  text_layer_set_text(sunm_layer, "");
+  text_layer_set_font(sunm_layer, source_code_pro);
+
   // Description
   desc_layer = text_layer_create(GRect(0, 4, bounds.size.w, 16));
   text_layer_set_background_color(desc_layer, GColorBlack);
@@ -97,6 +129,9 @@ static void main_window_load(Window *window) {
   layer_add_child(window_layer, text_layer_get_layer(temp_layer));
   layer_add_child(window_layer, text_layer_get_layer(rain_layer));
   layer_add_child(window_layer, text_layer_get_layer(wind_layer));
+  layer_add_child(window_layer, text_layer_get_layer(date_layer));
+  layer_add_child(window_layer, text_layer_get_layer(sunh_layer));
+  layer_add_child(window_layer, text_layer_get_layer(sunm_layer));
   layer_add_child(window_layer, text_layer_get_layer(desc_layer));
   layer_add_child(window_layer, battery_layer);
 
@@ -109,6 +144,9 @@ static void main_window_unload(Window *window) {
   text_layer_destroy(temp_layer);
   text_layer_destroy(rain_layer);
   text_layer_destroy(wind_layer);
+  text_layer_destroy(date_layer);
+  text_layer_destroy(sunh_layer);
+  text_layer_destroy(sunm_layer);
   text_layer_destroy(desc_layer);
   for (int i=0; i<CAL_LINES; i++) text_layer_destroy(calendar_layers[i]);
 }
@@ -116,16 +154,22 @@ static void main_window_unload(Window *window) {
 static void inbox_received_callback(DictionaryIterator *iterator, void *context) {
   // Read tuples for data
   Tuple *temp_t = dict_find(iterator, MESSAGE_KEY_T);
-  Tuple *wind_t = dict_find(iterator, MESSAGE_KEY_W);
   Tuple *rain_t = dict_find(iterator, MESSAGE_KEY_R);
+  Tuple *wind_t = dict_find(iterator, MESSAGE_KEY_W);
+  Tuple *sunh_t = dict_find(iterator, MESSAGE_KEY_H);
+  Tuple *sunm_t = dict_find(iterator, MESSAGE_KEY_M);
   Tuple *desc_t = dict_find(iterator, MESSAGE_KEY_D);
 
   snprintf(temp_b, sizeof(temp_b), "%d", (int)temp_t->value->int32);
   text_layer_set_text(temp_layer, temp_b);
-  snprintf(wind_b, sizeof(wind_b), "%s", wind_t->value->cstring);
-  text_layer_set_text(wind_layer, wind_b);
   snprintf(rain_b, sizeof(rain_b), "%d", (int)rain_t->value->int32);
   text_layer_set_text(rain_layer, rain_b);
+  snprintf(wind_b, sizeof(wind_b), "%s", wind_t->value->cstring);
+  text_layer_set_text(wind_layer, wind_b);
+  snprintf(sunh_b, sizeof(sunh_b), "%d", (int)sunh_t->value->int32);
+  text_layer_set_text(sunh_layer, sunh_b);
+  snprintf(sunm_b, sizeof(sunm_b), "%d", (int)sunm_t->value->int32);
+  text_layer_set_text(sunm_layer, sunm_b);
   snprintf(desc_b, sizeof(desc_b), "%s", desc_t->value->cstring);
   text_layer_set_text(desc_layer, desc_b);
 
