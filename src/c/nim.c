@@ -35,7 +35,7 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   if (update || tick_time->tm_min == 0) {
     weather_tick_handler();
     if (update || tick_time->tm_hour == 0) {
-      snprintf(date_b, sizeof(date_b), "%d", tick_time->tm_day);
+      snprintf(date_b, sizeof(date_b), "%d", tick_time->tm_mday);
       text_layer_set_text(date_layer, date_b);
     }
   }

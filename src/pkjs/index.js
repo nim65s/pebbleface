@@ -7,12 +7,12 @@ var xhrRequest = function (url, type, callback) {
 
 function locationSuccess(pos) {
   var url = 'https://saurel.me/pebble/' + pos.coords.latitude + '/' + pos.coords.longitude;
-  xhrRequest(url, 'GET', function(responseText) { console.log('send'); Pebble.sendAppMessage(JSON.parse(responseText)); });
+  xhrRequest(url, 'GET', function(responseText) { Pebble.sendAppMessage(JSON.parse(responseText)); });
 }
 
 function locationError(err) {
   var url = 'https://saurel.me/pebble/';
-  xhrRequest(url, 'GET', function(responseText) { console.log('send'); Pebble.sendAppMessage(JSON.parse(responseText)); });
+  xhrRequest(url, 'GET', function(responseText) { Pebble.sendAppMessage(JSON.parse(responseText)); });
 }
 
 function getWeather() {
