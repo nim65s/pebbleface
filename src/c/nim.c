@@ -1,26 +1,41 @@
 #include "utils.h"
 
+#define WIDTH 144
 #define CAL_LINES 9
 #define BOX_H 12
 #define BOX_W 13
 #define BOX_TOP 20
 #define BOX_MID (BOX_TOP + BOX_H)
 #define BOX_BOT (BOX_MID + BOX_H)
-#define BOX_R (144 - BOX_W)
+#define BOX_R (WIDTH - BOX_W)
 
 static Window *main_window;
 static GFont source_code_pro;
-static bool update = true;
+static bool update = true, bt_connected;
 
 // Layers
 static TextLayer *desc_layer, *temp_layer, *rain_layer, *wind_layer,
                  *date_layer, *sunh_layer, *sunm_layer, *time_layer;
 static TextLayer *calendar_layers[CAL_LINES];
-static Layer *battery_layer;
+static Layer *battery_layer, *bluetooth_layer;
 
 // Buffers
 static char desc_b[32], temp_b[8], rain_b[8], wind_b[8], date_b[8], sunm_b[8],
             sunh_b[8], cal_b[CAL_LINES][32];
+
+
+
+static void bluetooth_update_proc(Layer *layer, GContext *ctx) {
+  GRect bounds = layer_get_bounds(layer);
+  graphics_context_set_fill_color(ctx, bt_connected ? GColorBlack : GColorRed);
+  graphics_fill_rect(ctx, bounds, 0, GCornerNone);
+}
+
+static void bluetooth_callback(bool connected) {
+  bt_connected = connected;
+  vibes_double_pulse();
+  layer_mark_dirty(bluetooth_layer);
+}
 
 static void weather_tick_handler() {
   DictionaryIterator *iter;
@@ -28,7 +43,6 @@ static void weather_tick_handler() {
   dict_write_uint8(iter, 0, 0);
   app_message_outbox_send();
 }
-
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   update_time(time_layer);
@@ -113,6 +127,11 @@ static void main_window_load(Window *window) {
   battery_layer = layer_create(GRect(0, 0, bounds.size.w, 5));
   layer_set_update_proc(battery_layer, battery_update_proc);
 
+  // Bluetooth
+  bluetooth_layer = layer_create(GRect(BOX_W, BOX_TOP, WIDTH - 2 * BOX_W, 2));
+  layer_set_update_proc(bluetooth_layer, bluetooth_update_proc);
+  bluetooth_callback(connection_service_peek_pebble_app_connection());
+
   // Calendar
   for (int i=0; i<CAL_LINES; i++) {
     calendar_layers[i] = text_layer_create(GRect(0, 60 + BOX_H * i, bounds.size.w, BOX_H));
@@ -134,9 +153,11 @@ static void main_window_load(Window *window) {
   layer_add_child(window_layer, text_layer_get_layer(sunm_layer));
   layer_add_child(window_layer, text_layer_get_layer(desc_layer));
   layer_add_child(window_layer, battery_layer);
+  layer_add_child(window_layer, bluetooth_layer);
 
   // update meter
   layer_mark_dirty(battery_layer);
+  layer_mark_dirty(bluetooth_layer);
 }
 
 static void main_window_unload(Window *window) {
@@ -228,6 +249,10 @@ static void init() {
   app_message_register_outbox_sent(outbox_sent_callback);
   battery_state_service_subscribe(battery_callback);
   battery_callback(battery_state_service_peek());
+  connection_service_subscribe((ConnectionHandlers) {
+    .pebble_app_connection_handler = bluetooth_callback
+  });
+
 
   // Open AppMessage
   const int inbox_size = 384;
@@ -237,6 +262,7 @@ static void init() {
 
 static void deinit() {
   layer_destroy(battery_layer);
+  layer_destroy(bluetooth_layer);
   window_destroy(main_window);
 }
 
